@@ -91,24 +91,173 @@ tushirish mumkin. DEMO holatni to'liq tiklash: `docker compose exec backend php 
 
 `aloqa_test` bazasi MySQL volume birinchi marta yaratilganda (`docker/mysql/init`) avtomatik yaratiladi.
 
-## Production
+## Production: aloqa.urtg.uz
 
-1. `.env`: `APP_ENV=production`, `APP_DEBUG=false`, kuchli `APP_KEY`;
-   `DB_USERNAME` — **root emas**, alohida cheklangan foydalanuvchi, `DB_PASSWORD` kamida 16 belgi,
-   `DB_ROOT_PASSWORD` — boshqa kuchli parol. Aks holda `backend` konteyneri ishga tushmaydi (entrypoint tekshiradi).
-   MySQL init skripti `DB_USERNAME` uchun faqat `DB_DATABASE` ga cheklangan huquqlar beradi.
-2. HTTPS reverse proxy ortida: `SESSION_SECURE_COOKIE=true`, `SANCTUM_STATEFUL_DOMAINS=aloqa.urtg.uz`,
-   `APP_URL=https://aloqa.urtg.uz`. Proxy `X-Forwarded-For` va `X-Forwarded-Proto` uzatishi kerak.
-   Masalan, mavjud `urtg_proxy` uchun server bloki: `proxy_pass http://<host>:8090;`.
-   Tashqi portni yopish uchun `APP_BIND=127.0.0.1`.
-3. `docker compose up -d --build`, so'ng birinchi administrator:
-   `docker compose exec backend php artisan app:create-admin admin@urtg.uz --name="F.I.Sh."` (parol so'raladi).
-4. Rollar/ruxsatlar har deploy'da `RUN_MIGRATIONS=true` bilan sinxronlanadi
-   (yoki `php artisan db:seed --class=Database\\Seeders\\RolesAndPermissionsSeeder --force`).
-5. Zaxira nusxa: `mysql_data` va `backend_storage` (hujjatlar) volume'lari.
-6. Xarita tasvirlari: standart sun'iy yo'ldosh qatlami Esri World Imagery (`MAP_SATELLITE_URL`). Production'da Esri
-   foydalanish shartlariga mos litsenziya yoki korporativ ortofoto/tile serverini ulang (`Sozlamalar → Xarita provayderi`
-   yoki `MAP_SATELLITE_*`); URL bo'sh qoldirilsa, sun'iy yo'ldosh va gibrid qatlamlar o'chadi.
+```
+Brauzer ─HTTPS─▶ reverse proxy (TLS, aloqa.urtg.uz) ─HTTP─▶ 127.0.0.1:8078 ─▶ nginx konteyneri ─▶ backend (php-fpm) ─▶ mysql
+```
+
+Ilova serverda faqat `127.0.0.1:8078` portida tinglaydi, unga tashqaridan faqat reverse proxy orqali kiriladi.
+MySQL tashqariga port ochmaydi. Serverda Docker Engine va Compose v2, `aloqa.urtg.uz` uchun DNS A yozuvi kerak.
+
+### 1. `.env`
+
+```bash
+cp .env.example .env && chmod 600 .env
+openssl rand -hex 24      # DB_PASSWORD uchun; DB_ROOT_PASSWORD uchun yana bir marta
+```
+
+Quyidagi qiymatlarni o'zgartiring, qolganlari `.env.example` dagidek qoladi:
+
+```dotenv
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://aloqa.urtg.uz
+APP_PORT=8078
+APP_BIND=127.0.0.1
+RUN_MIGRATIONS=true
+
+DB_DATABASE=aloqa
+DB_USERNAME=aloqa_app
+DB_PASSWORD=<openssl rand -hex 24 natijasi>
+DB_ROOT_PASSWORD=<boshqa openssl rand -hex 24 natijasi>
+
+SESSION_SECURE_COOKIE=true
+SANCTUM_STATEFUL_DOMAINS=aloqa.urtg.uz
+CORS_ALLOWED_ORIGINS=
+LOG_LEVEL=warning
+```
+
+`APP_KEY` yaratish:
+
+```bash
+docker compose run --rm --no-deps --entrypoint php backend artisan key:generate --show
+#   → chiqqan base64:... qiymatini .env dagi APP_KEY= ga qo'ying
+```
+
+- Parollar hex bo'lsin: `$`, `'` va `#` belgilari Docker Compose va MySQL init skriptida xato beradi.
+- `backend` konteyneri ishga tushmaydi, agar `APP_KEY` bo'sh, `APP_DEBUG=true`, `DB_USERNAME=root` yoki
+  `DB_PASSWORD` 16 belgidan qisqa bo'lsa. Sababi `docker compose logs backend` da yoziladi.
+- `aloqa_app` foydalanuvchisi va root paroli **faqat `mysql_data` volume birinchi marta yaratilganda** o'rnatiladi
+  (`docker/mysql/init/01-app-user.sh`). Foydalanuvchi faqat `aloqa` bazasiga huquq oladi. Volume oldin boshqa
+  sozlamalar bilan yaratilgan bo'lsa, shu skriptdagi SQL'ni qo'lda bajaring: volume'ni o'chirish barcha ma'lumotni yo'q qiladi.
+- Production'da konfiguratsiya ishga tushishda keshlanadi. `.env` o'zgarsa:
+  `docker compose up -d --force-recreate backend queue scheduler`.
+
+### 2. Ishga tushirish
+
+```bash
+docker compose up -d --build
+docker compose ps                         # backend, mysql, nginx — healthy; queue, scheduler — running
+curl -s http://127.0.0.1:8078/healthz     # ok
+docker compose exec backend php artisan app:create-admin admin@urtg.uz --name="F.I.Sh."    # parol so'raladi
+```
+
+Migratsiyalar va rollar/ruxsatlar har ishga tushishda avtomatik bajariladi (`RUN_MIGRATIONS=true`).
+Production'da DEMO ma'lumotlar yuklanmaydi: `db:seed` faqat rollarni yaratadi. Keyin administrator tizimda
+tashkilotlar (MGQB), foydalanuvchilar, gaz quvurlari va kabel turlarini kiritadi.
+
+### 3. Reverse proxy: aloqa.urtg.uz → 127.0.0.1:8078
+
+**A. Host'dagi nginx (tavsiya etiladi).** `/etc/nginx/sites-available/aloqa.urtg.uz`:
+
+```nginx
+server {
+    listen 80;
+    server_name aloqa.urtg.uz;
+
+    # Hujjatlar 50 MB gacha (DOCUMENT_MAX_KB=51200); ichki nginx ham 60M qabul qiladi
+    client_max_body_size 60M;
+
+    location / {
+        proxy_pass http://127.0.0.1:8078;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # Katta Excel/PDF hisobotlar uchun (ichki fastcgi_read_timeout ham 300)
+        proxy_read_timeout 300;
+    }
+}
+```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/aloqa.urtg.uz /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d aloqa.urtg.uz     # TLS sertifikati va HTTP → HTTPS yo'naltirish
+```
+
+**B. Reverse proxy Docker konteynerida bo'lsa** (masalan, `urtg_proxy`). Konteyner ichida `127.0.0.1` konteynerning
+o'zi, shuning uchun ilovani host'ning `docker0` manziliga bog'lang:
+
+```bash
+ip -4 addr show docker0                   # odatda 172.17.0.1
+```
+
+`.env` da `APP_BIND=172.17.0.1`, proxy konfiguratsiyasida `proxy_pass http://172.17.0.1:8078;`, qolgani A variantidagidek.
+Bu manzilga konteynerlar yetadi, lokal tarmoqdan esa port ko'rinmaydi.
+
+Ikkala variantda ham:
+
+- Proxy `X-Forwarded-Proto: https` uzatishi shart. `SESSION_SECURE_COOKIE=true` bo'lgani uchun busiz login ishlamaydi.
+- `APP_BIND=0.0.0.0` qilmang. Ichki nginx xususiy tarmoq manzillaridan kelgan `X-Forwarded-For` va `X-Forwarded-Proto`
+  sarlavhalariga ishonadi, ochiq portda ular soxtalashtirilishi mumkin.
+
+### 4. Tekshirish
+
+```bash
+curl -s https://aloqa.urtg.uz/healthz     # ok
+curl -sI https://aloqa.urtg.uz/ | head -1 # 200
+```
+
+So'ng <https://aloqa.urtg.uz> da administrator bilan kiring.
+
+| Belgi | Nimani tekshirish kerak |
+|---|---|
+| Login sahifasida qoladi yoki 419 xato | `.env` da `SANCTUM_STATEFUL_DOMAINS=aloqa.urtg.uz`; proxy `X-Forwarded-Proto https` uzatadimi |
+| Hujjat yuklashda 413 | proxy'dagi `client_max_body_size` |
+| 502 | `docker compose ps`; `ss -ltn` ro'yxatida 8078 port bormi |
+| Katta hisobotda 504 | proxy'dagi `proxy_read_timeout` |
+| `backend` qayta-qayta ishga tushadi | `docker compose logs backend`: entrypoint tekshiruvi sababni yozadi |
+
+### 5. Yangilash
+
+```bash
+# yangi kodni serverga ko'chirgach, avval zaxira nusxa oling (6-bo'lim)
+docker compose up -d --build              # migratsiyalar va rollar avtomatik
+docker compose ps
+```
+
+Ma'lumotlar `mysql_data` va `backend_storage` volume'larida saqlanadi va yangilashda o'chmaydi.
+Production'da `migrate:fresh`, `db:wipe` va `docker compose down -v` buyruqlarini hech qachon ishlatmang.
+
+### 6. Zaxira nusxa
+
+```bash
+# Ma'lumotlar bazasi (audit triggerlari bilan)
+docker compose exec -T mysql sh -c 'exec mysqldump --single-transaction --routines --triggers -uroot -p"$MYSQL_ROOT_PASSWORD" "$DB_DATABASE"' \
+  | gzip > aloqa-db-$(date +%F).sql.gz
+# Hujjatlar
+docker run --rm -v aloqa_backend_storage:/data:ro -v "$PWD":/backup alpine:3 \
+  tar czf /backup/aloqa-storage-$(date +%F).tar.gz -C /data .
+```
+
+Tiklash:
+
+```bash
+gunzip -c aloqa-db-YYYY-MM-DD.sql.gz | docker compose exec -T mysql sh -c 'exec mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$DB_DATABASE"'
+docker run --rm -v aloqa_backend_storage:/data -v "$PWD":/backup alpine:3 tar xzf /backup/aloqa-storage-YYYY-MM-DD.tar.gz -C /data
+```
+
+Nusxani har kuni cron bilan oling va boshqa serverda saqlang.
+
+### 7. Xarita provayderlari
+
+OpenStreetMap tile serveri va standart sun'iy yo'ldosh qatlami (Esri World Imagery, `MAP_SATELLITE_URL`) yuqori yuklama
+uchun mo'ljallanmagan. Production'da litsenziyalangan yoki korporativ tile/ortofoto serverini ulang. Buni
+`Sozlamalar → Xarita provayderi` sahifasida yoki `MAP_*` o'zgaruvchilari bilan qilish mumkin. Tasvir URL bo'sh qoldirilsa,
+sun'iy yo'ldosh va gibrid qatlamlar o'chadi.
 
 ## Asosiy qoidalar (qisqacha)
 
