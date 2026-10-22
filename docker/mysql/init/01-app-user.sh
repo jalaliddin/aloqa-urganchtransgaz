@@ -1,8 +1,11 @@
 #!/bin/bash
-# Runs once, on first initialisation of the MySQL data volume.
+# Runs automatically once, on first initialisation of the MySQL data volume.
 # - creates the application database
 # - creates a restricted application user when DB_USERNAME is not root
 # - in non-production environments, creates <db>_test for the automated test suite
+#
+# Idempotent: after DB_USERNAME/DB_PASSWORD change in .env, re-run it to sync the user (data is kept):
+#   docker compose up -d mysql && docker compose exec mysql bash /docker-entrypoint-initdb.d/01-app-user.sh
 set -euo pipefail
 
 db="${DB_DATABASE:?DB_DATABASE is required}"
@@ -18,6 +21,7 @@ fi
 
 if [ "${user}" != "root" ]; then
     sql+="CREATE USER IF NOT EXISTS '${user}'@'%' IDENTIFIED BY '${pass}';"
+    sql+="ALTER USER '${user}'@'%' IDENTIFIED BY '${pass}';"
     sql+="GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, DROP, REFERENCES, CREATE TEMPORARY TABLES, LOCK TABLES, TRIGGER ON \`${db}\`.* TO '${user}'@'%';"
     if [ "${APP_ENV:-local}" != "production" ]; then
         sql+="GRANT ALL PRIVILEGES ON \`${test_db}\`.* TO '${user}'@'%';"

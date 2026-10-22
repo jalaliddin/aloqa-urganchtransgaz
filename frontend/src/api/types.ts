@@ -138,7 +138,7 @@ export interface CableLine {
   gas_pipeline_asset_id: number | null
   gas_pipeline?: { id: number; code: string; name: string } | null
   cable_type_id: number | null
-  cable_type_ref?: { id: number; code: string; name: string } | null
+  cable_type_ref?: { id: number; code: string; name: string; brand: string | null; is_active: boolean } | null
   object_name: string | null
   start_point: string | null
   end_point: string | null
@@ -487,8 +487,29 @@ export interface DashboardData {
     inventory_percent: number | null
     dismantling_percent: number | null
   }[]
+  by_cable_type: CableTypeRow[]
   status_distribution: { status: string; segments: number; length_m: Decimal }[]
   monthly_dismantling: { month: string; length_m: Decimal }[]
+}
+
+/** Registry figures for one cable type ("none" key = lines without a type). */
+export interface CableTypeRow {
+  key: string
+  cable_type_id: number | null
+  code: string | null
+  name: string
+  brand: string | null
+  is_active: boolean | null
+  is_demo: boolean
+  lines_count: number
+  segments_count: number
+  total_length_m: Decimal
+  share_percent: number | null
+  inventoried_length_m: Decimal
+  inventory_percent: number | null
+  planned_length_m: Decimal
+  dismantled_length_m: Decimal
+  dismantling_percent: number | null
 }
 
 export interface ReportColumn {
@@ -584,6 +605,8 @@ export interface CableTypeItem {
   is_active: boolean
   is_demo: boolean
   lines_count?: number
+  /** Usage within the viewer's organisations (list endpoint only) */
+  stats?: Pick<CableTypeRow, 'segments_count' | 'total_length_m' | 'share_percent' | 'planned_length_m' | 'dismantled_length_m' | 'dismantling_percent'>
   pending_count?: number
   current_composition?: MetalComposition | null
   compositions?: MetalComposition[]

@@ -41,7 +41,7 @@ class ReportAndDashboardTest extends FeatureTestCase
 
         $keys = array_column($this->getJson('/api/reports')->assertOk()->json('data'), 'key');
         $this->assertEqualsCanonicalizing([
-            'by_organization', 'registry', 'inventory_results', 'dismantling_plan_fact', 'materials',
+            'by_organization', 'by_cable_type', 'registry', 'inventory_results', 'dismantling_plan_fact', 'materials',
             'metal_content', 'metal_balance', 'incomplete_documents', 'hazardous_segments', 'left_in_place',
         ], $keys);
 
@@ -51,6 +51,18 @@ class ReportAndDashboardTest extends FeatureTestCase
 
         $this->getJson('/api/reports/incomplete_documents')->assertOk()->assertJsonPath('meta.total', 1);
         $this->getJson('/api/reports/unknown')->assertNotFound();
+    }
+
+    public function test_every_report_opens_with_data(): void
+    {
+        $at = $this->user('at_service');
+        $this->line($this->org(), $at);
+        $this->line($this->org(), $at);
+        $this->login($this->user('management'));
+
+        foreach (array_column($this->getJson('/api/reports')->assertOk()->json('data'), 'key') as $key) {
+            $this->getJson("/api/reports/{$key}")->assertOk();
+        }
     }
 
     public function test_export_to_excel_and_csv(): void

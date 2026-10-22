@@ -1,11 +1,11 @@
 import {
-  ActionIcon, Button, Divider, Group, NumberInput, Paper, Select, SimpleGrid, Stack, Text, Textarea, TextInput, Title, Tooltip,
+  ActionIcon, Anchor, Button, Divider, Group, NumberInput, Paper, Select, SimpleGrid, Stack, Text, Textarea, TextInput, Title, Tooltip,
 } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { api, ApiError } from '@/api/client'
 import { useCableTypes, useOrganizationOptions, usePipelines } from '@/api/queries'
 import type { CableLine } from '@/api/types'
@@ -49,9 +49,7 @@ export default function CableLineFormPage() {
     initialValues: {
       name: '',
       cable_code: '',
-      cable_type: '',
       cable_type_id: null as string | null,
-      brand: '',
       core_count: emptyNumber,
       laid_year: emptyNumber,
       laid_year_precision: 'unknown',
@@ -74,6 +72,7 @@ export default function CableLineFormPage() {
         ? {}
         : {
             name: values.name.trim().length < 3 ? 'Liniya nomini kiriting' : null,
+            cable_type_id: !values.cable_type_id ? "Kabel turini ma'lumotnomadan tanlang" : null,
             organization_id: !values.organization_id ? "Mas'ul MGQBni tanlang" : null,
             balance_holder_id: !values.balance_holder_id ? 'Balans saqlovchini tanlang' : null,
             laid_year:
@@ -92,9 +91,7 @@ export default function CableLineFormPage() {
     form.setValues({
       name: line.name,
       cable_code: line.cable_code ?? '',
-      cable_type: line.cable_type ?? '',
       cable_type_id: line.cable_type_id ? String(line.cable_type_id) : null,
-      brand: line.brand ?? '',
       core_count: line.core_count ?? '',
       laid_year: line.laid_year ?? '',
       laid_year_precision: line.laid_year_precision,
@@ -135,9 +132,7 @@ export default function CableLineFormPage() {
       const payload = {
         name: values.name.trim(),
         cable_code: nullable(values.cable_code),
-        cable_type: nullable(values.cable_type),
-        cable_type_id: values.cable_type_id ? Number(values.cable_type_id) : null,
-        brand: nullable(values.brand),
+        cable_type_id: Number(values.cable_type_id),
         core_count: nullable(values.core_count),
         laid_year: nullable(values.laid_year),
         laid_year_precision: values.laid_year_precision,
@@ -172,6 +167,12 @@ export default function CableLineFormPage() {
 
   if (editing && existing.isLoading) return <PageSkeleton />
 
+  // Only active types are offered; a line keeps its current type even after that type was deactivated
+  const current = existing.data?.cable_type_ref
+  const typeOptions = cableTypes.map((t) => ({ value: String(t.id), label: t.name }))
+  if (current && !cableTypes.some((t) => t.id === current.id)) typeOptions.push({ value: String(current.id), label: `${current.name} (nofaol)` })
+  const pickedType = cableTypes.find((t) => String(t.id) === form.values.cable_type_id)
+
   const pipelineOptions = pipelines
     .filter((p) => !form.values.organization_id || String(p.organization_id) === form.values.organization_id)
     .map((p) => ({ value: String(p.id), label: `${p.code} — ${p.name}` }))
@@ -196,21 +197,33 @@ export default function CableLineFormPage() {
               <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
                 <TextInput label="Kabel nomi" required {...form.getInputProps('name')} />
                 <TextInput label="Kabel ID" description="Mavjud bo'lsa, eski hisob raqami" {...form.getInputProps('cable_code')} />
-                <Select
-                  label="Kabel turi (ma'lumotnoma)"
-                  description="Rangli metall tarkibi (kg/m) shu turdan olinadi"
-                  searchable
-                  clearable
-                  data={cableTypes.map((t) => ({ value: String(t.id), label: t.name }))}
-                  {...form.getInputProps('cable_type_id')}
-                  onChange={(v) => {
-                    form.setFieldValue('cable_type_id', v)
-                    const picked = cableTypes.find((t) => String(t.id) === v)
-                    if (picked && !form.values.brand) form.setFieldValue('brand', picked.name)
-                  }}
-                />
-                <TextInput label="Kabel turi (tavsif)" placeholder="Masalan: simmetrik aloqa kabeli" {...form.getInputProps('cable_type')} />
-                <TextInput label="Markasi" placeholder="Masalan: MKSB 4x4x1.2" {...form.getInputProps('brand')} />
+                <Stack gap={4}>
+                  <Select
+                    label="Kabel turi va markasi"
+                    description={
+                      pickedType
+                        ? [pickedType.brand && `Markasi: ${pickedType.brand}`, pickedType.core_count && `${pickedType.core_count} tomir`].filter(Boolean).join(', ') ||
+                          "Rangli metall tarkibi (kg/m) shu turdan olinadi"
+                        : "Rangli metall tarkibi (kg/m) shu turdan olinadi"
+                    }
+                    placeholder="Ma'lumotnomadan tanlang"
+                    required
+                    searchable
+                    nothingFoundMessage="Bunday kabel turi yo'q"
+                    data={typeOptions}
+                    {...form.getInputProps('cable_type_id')}
+                    onChange={(v) => {
+                      form.setFieldValue('cable_type_id', v)
+                      const picked = cableTypes.find((t) => String(t.id) === v)
+                      if (picked?.core_count && form.values.core_count === '') form.setFieldValue('core_count', picked.core_count)
+                    }}
+                  />
+                  {can('metal_composition.manage') && (
+                    <Anchor component={Link} to="/registry/cable-types" size="xs">
+                      Ro'yxatda yo'q bo'lsa, kabel turini qo'shing
+                    </Anchor>
+                  )}
+                </Stack>
                 <NumberInput label="Tomirlar soni" min={1} max={2000} allowDecimal={false} {...form.getInputProps('core_count')} />
                 <Group grow align="flex-start">
                   <NumberInput label="Yotqizilgan yil" min={1900} max={new Date().getFullYear()} allowDecimal={false} {...form.getInputProps('laid_year')} />

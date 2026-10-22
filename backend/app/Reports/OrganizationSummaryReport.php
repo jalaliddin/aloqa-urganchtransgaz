@@ -9,12 +9,16 @@ use App\Enums\UsageStatus;
 use App\Models\CableSegment;
 use App\Models\User;
 use App\Services\DashboardService;
+use App\Services\MetalMassCalculator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 final class OrganizationSummaryReport extends Report
 {
-    public function __construct(private readonly DashboardService $dashboard) {}
+    public function __construct(
+        private readonly DashboardService $dashboard,
+        private readonly MetalMassCalculator $calculator,
+    ) {}
 
     public function key(): string
     {

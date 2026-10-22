@@ -1,8 +1,9 @@
-import { Alert, Badge, Button, Drawer, Group, Modal, NumberInput, Paper, Stack, Switch, Table, Text, Textarea, TextInput, Title } from '@mantine/core'
+import { Alert, Anchor, Badge, Button, Drawer, Group, Modal, NumberInput, Paper, Stack, Switch, Table, Text, Textarea, TextInput, Title } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { IconInfoCircle, IconPlus } from '@tabler/icons-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { Link } from 'react-router'
 import { api, ApiError } from '@/api/client'
 import { useCableTypes } from '@/api/queries'
 import type { CableTypeItem, MetalComposition } from '@/api/types'
@@ -14,7 +15,7 @@ import { ApiErrorAlert, EmptyState, PageSkeleton } from '@/components/common/Sta
 import { CompositionFormModal, type CompositionScope } from '@/components/metal/CompositionFormModal'
 import { CompositionVersionsTable } from '@/components/metal/CompositionVersionsTable'
 import { KgPerMetreValue } from '@/components/metal/MetalValue'
-import { formatDate } from '@/lib/format'
+import { formatDate, formatKm, formatPercent } from '@/lib/format'
 import { useEnum } from '@/lib/meta'
 
 export default function CableTypesPage() {
@@ -49,11 +50,16 @@ export default function CableTypesPage() {
         title="Kabel turlari va rangli metall tarkibi"
         description="1 metr kabeldagi alyuminiy, qo'rg'oshin va mis (kg/m). Liniya va uchastkalar qiymatni kabel turidan meros oladi; zarur bo'lsa ular uchun alohida tasdiqlangan qiymat kiritiladi."
         actions={
-          canManage && (
-            <Button leftSection={<IconPlus size={16} />} onClick={() => setEditing('new')}>
-              Kabel turi qo'shish
+          <Group gap="xs">
+            <Button component={Link} to="/reports?report=by_cable_type" variant="default">
+              Kabel turlari hisoboti
             </Button>
-          )
+            {canManage && (
+              <Button leftSection={<IconPlus size={16} />} onClick={() => setEditing('new')}>
+                Kabel turi qo'shish
+              </Button>
+            )}
+          </Group>
         }
       />
 
@@ -80,17 +86,18 @@ export default function CableTypesPage() {
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th>Kabel turi / markasi</Table.Th>
+                  <Table.Th ta="right">Reyestrda</Table.Th>
                   <Table.Th>Alyuminiy</Table.Th>
                   <Table.Th>Qo'rg'oshin</Table.Th>
                   <Table.Th>Mis</Table.Th>
                   <Table.Th>Manba</Table.Th>
-                  <Table.Th ta="right">Liniyalar</Table.Th>
                   <Table.Th />
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
                 {types!.map((type) => {
                   const c = type.current_composition
+                  const stats = type.stats
                   return (
                     <Table.Tr key={type.id}>
                       <Table.Td>
@@ -114,6 +121,18 @@ export default function CableTypesPage() {
                           {type.core_count ? `, ${type.core_count} tomir` : ''}
                         </Text>
                       </Table.Td>
+                      <Table.Td ta="right" style={{ whiteSpace: 'nowrap' }}>
+                        <Text size="sm">{formatKm(stats?.total_length_m ?? '0')}</Text>
+                        {type.lines_count ? (
+                          <Anchor component={Link} to={`/registry?cable_type_id=${type.id}`} size="xs">
+                            {type.lines_count} liniya, {formatPercent(stats?.share_percent)}
+                          </Anchor>
+                        ) : (
+                          <Text size="xs" c="dimmed">
+                            liniya yo'q
+                          </Text>
+                        )}
+                      </Table.Td>
                       {c ? (
                         <>
                           <Table.Td>
@@ -125,7 +144,7 @@ export default function CableTypesPage() {
                           <Table.Td>
                             <KgPerMetreValue value={c.copper_kg_per_m} />
                           </Table.Td>
-                          <Table.Td maw={260}>
+                          <Table.Td maw={230}>
                             <Text size="sm" lineClamp={1}>
                               {c.source_reference}
                             </Text>
@@ -135,13 +154,12 @@ export default function CableTypesPage() {
                           </Table.Td>
                         </>
                       ) : (
-                        <Table.Td colSpan={4}>
+                        <Table.Td colSpan={4} maw={460}>
                           <Text size="sm" c="orange.8">
                             Tasdiqlangan tarkib yo'q — bu turdagi liniyalar uchun nazariy massa noma'lum.
                           </Text>
                         </Table.Td>
                       )}
-                      <Table.Td ta="right">{type.lines_count ?? 0}</Table.Td>
                       <Table.Td>
                         <Group gap={4} justify="flex-end" wrap="nowrap">
                           {(type.pending_count ?? 0) > 0 && (

@@ -12,4 +12,5 @@ enum MetalCalculationTrigger: string
     case CompositionApproved = 'composition_approved';
     case LengthChanged = 'length_changed';
     case ActRecorded = 'act_recorded';
+    case CableTypeChanged = 'cable_type_changed';
 }

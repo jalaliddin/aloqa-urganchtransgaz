@@ -7,6 +7,7 @@ use App\Models\Alert;
 use App\Models\AuditLog;
 use App\Models\CableLine;
 use App\Models\CableSegment;
+use App\Models\CableType;
 
 class CableRegistryTest extends FeatureTestCase
 {
@@ -18,7 +19,7 @@ class CableRegistryTest extends FeatureTestCase
         $response = $this->postJson('/api/cable-lines', [
             'name' => 'TEST liniya',
             'cable_code' => 'TEST-K-1',
-            'brand' => 'MKSB 4x4x1.2',
+            'cable_type_id' => CableType::query()->create(['code' => 'T-MKSB', 'name' => 'TEST MKSB 4x4x1.2', 'brand' => 'MKSB'])->id,
             'core_count' => 16,
             'laid_year' => 1960,
             'laid_year_precision' => 'decade',
@@ -39,7 +40,8 @@ class CableRegistryTest extends FeatureTestCase
             ->assertJsonPath('data.risk_level', 'high')
             ->assertJsonPath('data.is_complex', true)
             ->assertJsonPath('data.has_geometry', false)
-            ->assertJsonPath('data.design_length_m', '2500.50');
+            ->assertJsonPath('data.design_length_m', '2500.50')
+            ->assertJsonPath('data.cable_type_ref.brand', 'MKSB');
 
         $line = CableLine::query()->firstOrFail();
         $this->assertTrue(AuditLog::query()->where('event', 'created')->where('auditable_type', 'cable_line')->where('auditable_id', $line->id)->exists());
@@ -60,7 +62,7 @@ class CableRegistryTest extends FeatureTestCase
 
         $this->postJson('/api/cable-lines', ['laid_year' => 1800, 'design_length_m' => -5])
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['name', 'organization_id', 'balance_holder_id', 'laid_year', 'design_length_m', 'laid_year_precision']);
+            ->assertJsonValidationErrors(['name', 'cable_type_id', 'organization_id', 'balance_holder_id', 'laid_year', 'design_length_m', 'laid_year_precision']);
     }
 
     public function test_update_is_audited_with_old_and_new_values(): void

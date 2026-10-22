@@ -86,7 +86,7 @@ export default function RegistryPage() {
     },
     { key: 'organization', header: 'MGQB', render: (l) => <Text size="sm" style={{ whiteSpace: 'nowrap' }}>{l.organization?.short_name ?? l.organization?.name ?? '—'}</Text> },
     { key: 'gas_pipeline', header: 'Gaz quvuri', hiddenByDefault: true, render: (l) => l.gas_pipeline?.name ?? '—' },
-    { key: 'brand', header: 'Markasi', hiddenByDefault: true, render: (l) => l.brand ?? '—' },
+    { key: 'cable_type', header: 'Kabel turi', render: (l) => <Text size="sm" style={{ whiteSpace: 'nowrap' }}>{l.cable_type_ref?.name ?? l.brand ?? '—'}</Text> },
     { key: 'laid_year', header: 'Yili', sortKey: 'laid_year', render: (l) => l.laid_year_label },
     { key: 'design_length_m', header: "Loyiha bo'yicha", sortKey: 'design_length_m', align: 'right', render: (l) => formatLength(l.design_length_m) },
     { key: 'measured_length_m', header: 'Aniqlangan', sortKey: 'measured_length_m', align: 'right', render: (l) => formatLength(l.measured_length_m) },

@@ -71,6 +71,9 @@ class AuthTest extends FeatureTestCase
     {
         $this->getJson('/api/cable-lines')->assertUnauthorized()->assertJsonPath('code', 'unauthenticated');
         $this->getJson('/api/dashboard')->assertUnauthorized();
+
+        // A plain browser request (e.g. a download link opened after the session expired) gets 401, not a redirect error
+        $this->get('/api/meta')->assertUnauthorized()->assertJsonPath('code', 'unauthenticated');
     }
 
     public function test_passwords_are_stored_hashed(): void

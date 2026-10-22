@@ -49,6 +49,9 @@ export default function DashboardPage() {
     'Demontaj qilingan': km(row.dismantled_length_m),
   }))
 
+  // Types without lines in the user's scope only add noise here; the full list is in the report
+  const typeRows = data.by_cable_type.filter((row) => row.lines_count > 0)
+
   const monthly = data.monthly_dismantling.map((row) => ({ month: formatMonth(row.month), km: km(row.length_m) }))
   const hasMonthly = monthly.some((m) => m.km > 0)
 
@@ -293,6 +296,66 @@ export default function DashboardPage() {
             </Table.Tbody>
           </Table>
         </Table.ScrollContainer>
+      </Paper>
+
+      <Paper p="md" mt="md">
+        <Group justify="space-between" align="flex-start" wrap="wrap" mb="md">
+          <div>
+            <Title order={3} mb={4}>
+              Kabel turlari kesimida
+            </Title>
+            <Text size="sm" c="dimmed">
+              Reyestrdagi uzunlik va uning ulushi, demontaj bajarilishi, km
+            </Text>
+          </div>
+          <Anchor component={Link} to="/reports?report=by_cable_type" size="sm">
+            Kabel turlari hisoboti
+          </Anchor>
+        </Group>
+        {typeRows.length === 0 ? (
+          <Text c="dimmed" size="sm">
+            Hali kabel liniyalari yo'q.
+          </Text>
+        ) : (
+          <Table.ScrollContainer minWidth={640}>
+            <Table fz="sm">
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Kabel turi</Table.Th>
+                  <Table.Th ta="right">Liniyalar</Table.Th>
+                  <Table.Th w={220}>Reyestrdagi ulushi</Table.Th>
+                  <Table.Th ta="right">Demontaj rejasi</Table.Th>
+                  <Table.Th w={200}>Demontaj bajarilishi</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {typeRows.map((row) => (
+                  <Table.Tr key={row.key}>
+                    <Table.Td>
+                      {row.cable_type_id ? (
+                        <Anchor component={Link} to={`/registry?cable_type_id=${row.cable_type_id}`} size="sm">
+                          {row.name}
+                        </Anchor>
+                      ) : (
+                        <Text size="sm" c="orange.8">
+                          {row.name}
+                        </Text>
+                      )}
+                    </Table.Td>
+                    <Table.Td ta="right">{row.lines_count}</Table.Td>
+                    <Table.Td>
+                      <PercentBar value={row.share_percent} label={formatKm(row.total_length_m)} color={SERIES.registry} />
+                    </Table.Td>
+                    <Table.Td ta="right">{formatKm(row.planned_length_m)}</Table.Td>
+                    <Table.Td>
+                      <PercentBar value={row.dismantling_percent} label={formatKm(row.dismantled_length_m)} color={SERIES.dismantled} />
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
+        )}
       </Paper>
     </>
   )

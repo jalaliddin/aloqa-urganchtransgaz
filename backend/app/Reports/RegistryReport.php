@@ -37,6 +37,7 @@ final class RegistryReport extends Report
             ['key' => 'registry_number', 'label' => 'Reyestr raqami', 'type' => 'text'],
             ['key' => 'cable_code', 'label' => 'Kabel ID', 'type' => 'text'],
             ['key' => 'name', 'label' => 'Nomi', 'type' => 'text'],
+            ['key' => 'cable_type', 'label' => 'Kabel turi', 'type' => 'text'],
             ['key' => 'brand', 'label' => 'Markasi', 'type' => 'text'],
             ['key' => 'organization', 'label' => "Mas'ul MGQB", 'type' => 'text'],
             ['key' => 'balance_holder', 'label' => 'Balans saqlovchi', 'type' => 'text'],
@@ -70,7 +71,7 @@ final class RegistryReport extends Report
     public function source(User $user, array $filters): Builder|Collection
     {
         $query = CableLine::query()->visibleTo($user)
-            ->with(['organization:id,name,short_name', 'balanceHolder:id,name,short_name', 'gasPipelineAsset:id,name'])
+            ->with(['organization:id,name,short_name', 'balanceHolder:id,name,short_name', 'gasPipelineAsset:id,name', 'cableType:id,name,brand'])
             ->withCount('segments')
             ->when($filters['status'] ?? null, fn ($q, $s) => $q->where('dismantling_status', $s))
             ->orderBy('registry_number');
@@ -87,7 +88,9 @@ final class RegistryReport extends Report
             'registry_number' => $row->registry_number,
             'cable_code' => $row->cable_code,
             'name' => $row->name,
-            'brand' => $row->brand,
+            // Dictionary first; free text only on lines entered before the dictionary existed
+            'cable_type' => $row->cableType?->name ?? $row->cable_type,
+            'brand' => $row->cableType?->brand ?? $row->brand,
             'organization' => $row->organization?->short_name ?? $row->organization?->name,
             'balance_holder' => $row->balanceHolder?->short_name ?? $row->balanceHolder?->name,
             'gas_pipeline' => $row->gasPipelineAsset?->name,

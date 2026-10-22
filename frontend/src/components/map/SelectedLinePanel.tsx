@@ -58,7 +58,7 @@ export function SelectedLinePanel({ lineId, segmentId, onClose, onEditGeometry, 
             <SimpleGrid cols={2} spacing="xs" verticalSpacing={6}>
               <Info label="MGQB" value={line.organization?.short_name ?? line.organization?.name} />
               <Info label="Gaz quvuri" value={line.gas_pipeline?.name} />
-              <Info label="Markasi" value={line.brand} />
+              <Info label="Kabel turi" value={line.cable_type_ref?.name ?? line.brand} />
               <Info label="Yotqizilgan" value={line.laid_year_label} />
               <Info label="Loyiha bo'yicha" value={formatLength(line.design_length_m)} />
               <Info label="Aniqlangan" value={formatLength(line.measured_length_m)} />

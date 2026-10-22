@@ -55,7 +55,7 @@ export default function CableLineDetailPage() {
     <>
       <PageHeader
         title={`${line.registry_number} — ${line.name}`}
-        description={[line.cable_type, line.brand, line.organization?.name].filter(Boolean).join(', ')}
+        description={[line.cable_type_ref?.name ?? line.cable_type, line.organization?.name].filter(Boolean).join(', ')}
         badges={
           <Group gap={6}>
             {line.is_demo && <Badge color="orange">DEMO</Badge>}
@@ -111,7 +111,7 @@ export default function CableLineDetailPage() {
                 rows={[
                   ['Kabel ID', line.cable_code],
                   ['Kabel turi', line.cable_type_ref?.name ?? line.cable_type],
-                  ['Markasi', line.brand],
+                  ['Markasi', line.cable_type_ref?.brand ?? line.brand],
                   ['Tomirlar soni', line.core_count?.toString()],
                   ['Yotqizilgan yil', line.laid_year_label],
                   ['Balans saqlovchi', line.balance_holder?.name],

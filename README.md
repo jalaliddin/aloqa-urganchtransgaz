@@ -139,8 +139,17 @@ docker compose run --rm --no-deps --entrypoint php backend artisan key:generate 
 - `backend` konteyneri ishga tushmaydi, agar `APP_KEY` bo'sh, `APP_DEBUG=true`, `DB_USERNAME=root` yoki
   `DB_PASSWORD` 16 belgidan qisqa bo'lsa. Sababi `docker compose logs backend` da yoziladi.
 - `aloqa_app` foydalanuvchisi va root paroli **faqat `mysql_data` volume birinchi marta yaratilganda** o'rnatiladi
-  (`docker/mysql/init/01-app-user.sh`). Foydalanuvchi faqat `aloqa` bazasiga huquq oladi. Volume oldin boshqa
-  sozlamalar bilan yaratilgan bo'lsa, shu skriptdagi SQL'ni qo'lda bajaring: volume'ni o'chirish barcha ma'lumotni yo'q qiladi.
+  (`docker/mysql/init/01-app-user.sh`). Foydalanuvchi faqat `aloqa` bazasiga huquq oladi. Keyin `DB_USERNAME` yoki
+  `DB_PASSWORD` o'zgarsa (masalan, avval `.env.example` dagi root/root bilan ishga tushirilgan bo'lsa), foydalanuvchini
+  `.env` bilan sinxronlang. Ma'lumotlar saqlanib qoladi:
+
+  ```bash
+  docker compose up -d mysql
+  docker compose exec mysql bash /docker-entrypoint-initdb.d/01-app-user.sh
+  docker compose up -d
+  ```
+
+  `DB_ROOT_PASSWORD` ham faqat birinchi yaratishda o'rnatiladi: keyin uni `.env` da o'zgartirmang.
 - Production'da konfiguratsiya ishga tushishda keshlanadi. `.env` o'zgarsa:
   `docker compose up -d --force-recreate backend queue scheduler`.
 
@@ -215,6 +224,8 @@ So'ng <https://aloqa.urtg.uz> da administrator bilan kiring.
 
 | Belgi | Nimani tekshirish kerak |
 |---|---|
+| `✘ Container aloqa-backend-1 Error` / `dependency failed to start` | `docker compose logs backend --tail=50`. `[entrypoint] ERROR` qatori sababni va tuzatish buyrug'ini yozadi: `APP_KEY` bo'sh, `APP_DEBUG=true`, `DB_USERNAME=root`, qisqa parol yoki `Access denied` (1-bo'limdagi sinxronlash) |
+| `aloqa-mysql-1` unhealthy | `DB_ROOT_PASSWORD` volume yaratilgandan keyin o'zgartirilgan: avvalgi qiymatni qaytaring |
 | Login sahifasida qoladi yoki 419 xato | `.env` da `SANCTUM_STATEFUL_DOMAINS=aloqa.urtg.uz`; proxy `X-Forwarded-Proto https` uzatadimi |
 | Hujjat yuklashda 413 | proxy'dagi `client_max_body_size` |
 | 502 | `docker compose ps`; `ss -ltn` ro'yxatida 8078 port bormi |
@@ -269,6 +280,10 @@ sun'iy yo'ldosh va gibrid qatlamlar o'chadi.
   tanlanadi; tanlov brauzerda eslab qolinadi va barcha xaritalarga qo'llanadi. Tasvir ustida trassalar oq hoshiya bilan,
   tahrirlanayotgan geometriya esa sariq rangda chiziladi.
 - **"Aloqa tizimida ishlatilmaydi"** — faqat dalil + hujjat bilan, tasdiqlangan inventarizatsiya orqali.
+- **Kabel turi** liniya kiritilganda `Kabel turlari va metall tarkibi` ma'lumotnomasidan majburiy tanlanadi (marka va tavsif
+  qo'lda yozilmaydi; yangi liniyaga faqat faol tur). Tur o'zgarsa, nazariy massa hisob-kitob tarixiga yoziladi.
+  Kabel turlari kesimidagi statistika — dashboard, `Hisobotlar → Kabel turlari kesimida` (Excel/CSV) va kabel turlari
+  sahifasida; har doim foydalanuvchi ko'rish doirasidagi liniyalar bo'yicha.
 - **Rangli metall (Al, Pb, Cu)**: kg/m qiymati kabel turi bo'yicha (`Reyestr → Kabel turlari va metall tarkibi`), kerak bo'lsa
   liniya yoki uchastka uchun alohida. Har bir qiymat versiya sifatida kiritiladi va **ikkinchi vakolatli shaxs tasdiqlagach**
   amalga kiradi; eski versiya o'chirilmaydi. Manba (pasport, normativ, hujjat, o'lchov), kim va qachon kiritgani saqlanadi.

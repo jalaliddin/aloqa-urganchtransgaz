@@ -9,6 +9,7 @@ final class ReportRegistry
     /** @var list<class-string<Report>> */
     private const REPORTS = [
         OrganizationSummaryReport::class,
+        CableTypeSummaryReport::class,
         RegistryReport::class,
         InventoryResultsReport::class,
         DismantlingPlanFactReport::class,

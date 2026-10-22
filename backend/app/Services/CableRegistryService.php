@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Enums\AlertType;
 use App\Enums\GeometrySource;
+use App\Enums\MetalCalculationTrigger;
 use App\Enums\UsageStatus;
 use App\Exceptions\BusinessRuleException;
 use App\Models\CableLine;
@@ -32,6 +33,7 @@ final class CableRegistryService
         private readonly GeometryService $geometry,
         private readonly AlertService $alerts,
         private readonly AuditLogger $audit,
+        private readonly MetalMassCalculator $metals,
     ) {}
 
     /**
@@ -71,6 +73,14 @@ final class CableRegistryService
 
             if ($line->wasChanged('organization_id')) {
                 $line->segments()->update(['organization_id' => $line->organization_id]);
+            }
+
+            // The type decides kg/m: keep the theoretical-mass history for every segment of the line
+            if ($line->wasChanged('cable_type_id')) {
+                $details = ['previous_cable_type_id' => $line->getPrevious()['cable_type_id'] ?? null, 'cable_type_id' => $line->cable_type_id];
+                $line->segments()->get()->each(function (CableSegment $segment) use ($line, $user, $details): void {
+                    $this->metals->snapshotSegment($segment->setRelation('cableLine', $line), MetalCalculationTrigger::CableTypeChanged, $user, $details);
+                });
             }
 
             if ($line->wasChanged('design_length_m') && $oldDesign !== null && $line->design_length_m !== null

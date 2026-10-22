@@ -23,6 +23,8 @@ class CableTypeResource extends JsonResource
             'is_active' => $this->is_active,
             'is_demo' => $this->is_demo,
             'lines_count' => $this->whenCounted('lines'),
+            // Usage within the viewer's organisations (index only)
+            'stats' => $this->when($this->resource->offsetExists('stats'), fn () => $this->resource->stats),
             'pending_count' => $this->when(isset($this->pending_count), fn () => (int) $this->pending_count),
             'current_composition' => new CableMetalCompositionResource($this->whenLoaded('currentComposition')),
             'compositions' => CableMetalCompositionResource::collection($this->whenLoaded('compositions')),

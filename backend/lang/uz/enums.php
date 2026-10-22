@@ -186,6 +186,7 @@ return [
         'composition_approved' => 'Tarkib tasdiqlandi',
         'length_changed' => "Uzunlik o'zgardi",
         'act_recorded' => 'Dalolatnoma massasi kiritildi',
+        'cable_type_changed' => "Liniyaning kabel turi o'zgardi",
     ],
     'alert_type' => [
         'length_discrepancy' => 'Uzunlik farqi',

@@ -39,9 +39,15 @@ class CableLineRequest extends FormRequest
         $rules = [
             'name' => [$required, 'string', 'max:255'],
             'cable_code' => ['nullable', 'string', 'max:64', Rule::unique('cable_lines', 'cable_code')->ignore($line?->id)],
-            'cable_type' => ['nullable', 'string', 'max:255'],
-            'cable_type_id' => ['nullable', 'integer', Rule::exists('cable_types', 'id')->whereNull('deleted_at')],
-            'brand' => ['nullable', 'string', 'max:100'],
+            // Type and brand come from the cable type dictionary (the source of kg/m), never free text.
+            // New lines take an active type; an existing line may keep its current type after it was deactivated.
+            'cable_type_id' => [
+                ...($creating ? ['required'] : ['sometimes', 'required']),
+                'integer',
+                Rule::exists('cable_types', 'id')->whereNull('deleted_at')->where(
+                    fn ($q) => $q->where(fn ($w) => $w->where('is_active', true)->when($line?->cable_type_id, fn ($c, $id) => $c->orWhere('id', $id))),
+                ),
+            ],
             'core_count' => ['nullable', 'integer', 'min:1', 'max:2000'],
             'laid_year' => ['nullable', 'integer', 'min:1900', 'max:'.now()->year],
             'laid_year_precision' => [$required, Rule::enum(LaidYearPrecision::class)],
@@ -89,6 +95,14 @@ class CableLineRequest extends FormRequest
         }
 
         return $rules;
+    }
+
+    public function messages(): array
+    {
+        return [
+            'cable_type_id.required' => "Kabel turini ma'lumotnomadan tanlang.",
+            'cable_type_id.exists' => 'Tanlangan kabel turi topilmadi yoki faol emas.',
+        ];
     }
 
     public function after(): array

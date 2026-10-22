@@ -42,6 +42,8 @@ class CableLineResource extends JsonResource
                 'id' => $this->cableType->id,
                 'code' => $this->cableType->code,
                 'name' => $this->cableType->name,
+                'brand' => $this->cableType->brand,
+                'is_active' => $this->cableType->is_active,
             ] : null),
             'object_name' => $this->object_name,
             'start_point' => $this->start_point,

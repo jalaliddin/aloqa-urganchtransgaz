@@ -31,7 +31,7 @@ class CableLineController extends Controller
         $filters = CableFilter::fromRequest($request);
 
         $query = CableLine::query()->visibleTo($request->user())
-            ->with(['organization:id,name,short_name', 'balanceHolder:id,name,short_name', 'gasPipelineAsset:id,code,name'])
+            ->with(['organization:id,name,short_name', 'balanceHolder:id,name,short_name', 'gasPipelineAsset:id,code,name', 'cableType:id,code,name,brand,is_active'])
             ->withCount('segments');
 
         CableFilter::applyToLines($query, $filters)
@@ -183,7 +183,7 @@ class CableLineController extends Controller
     {
         return $line->load([
             'organization:id,name,short_name', 'balanceHolder:id,name,short_name', 'gasPipelineAsset:id,code,name',
-            'cableType:id,code,name', 'segments', 'creator:id,name', 'updater:id,name',
+            'cableType:id,code,name,brand,is_active', 'segments', 'creator:id,name', 'updater:id,name',
         ])->loadCount('segments');
     }
 

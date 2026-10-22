@@ -30,10 +30,13 @@ use Illuminate\Support\Facades\DB;
  */
 final class DashboardService
 {
-    public function __construct(private readonly MetalMassCalculator $calculator) {}
+    public function __construct(
+        private readonly MetalMassCalculator $calculator,
+        private readonly CableTypeStatistics $cableTypes,
+    ) {}
 
     /** Orders that still count towards the dismantling plan. */
-    private const PLAN_EXCLUDED = [DismantlingOrderStatus::Cancelled, DismantlingOrderStatus::LeftInPlace];
+    public const PLAN_EXCLUDED = [DismantlingOrderStatus::Cancelled, DismantlingOrderStatus::LeftInPlace];
 
     /** @return array<string, mixed> */
     public function summary(User $user): array
@@ -67,6 +70,7 @@ final class DashboardService
             ],
             'metals' => $this->metals($user),
             'by_organization' => $this->byOrganization($user),
+            'by_cable_type' => $this->cableTypes->rows($user, withMetals: false),
             'status_distribution' => $this->statusDistribution($segments),
             'monthly_dismantling' => $this->monthlyDismantling($user),
         ];

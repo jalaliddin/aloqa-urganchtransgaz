@@ -22,6 +22,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // Cookie-based SPA authentication (Sanctum) for same-origin requests
         $middleware->statefulApi();
         $middleware->throttleApi('api');
+        // There is no server-side login page: guests on the API get a 401 even without an Accept: application/json header
+        $middleware->redirectGuestsTo(fn (Request $request) => $request->is('api/*') ? null : '/login');
         // Only nginx talks to php-fpm; it already resolved the client IP and scheme
         $middleware->trustProxies(at: ['127.0.0.1', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']);
         $middleware->alias([

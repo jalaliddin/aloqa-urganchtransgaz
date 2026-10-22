@@ -2,7 +2,7 @@ import { Button, Collapse, Group, MultiSelect, NumberInput, Select, SimpleGrid, 
 import { useDebouncedCallback, useDisclosure } from '@mantine/hooks'
 import { IconAdjustmentsHorizontal, IconFilterOff, IconSearch } from '@tabler/icons-react'
 import { useState } from 'react'
-import { useOrganizationOptions, usePipelines } from '@/api/queries'
+import { useCableTypes, useOrganizationOptions, usePipelines } from '@/api/queries'
 import { useEnum } from '@/lib/meta'
 import type { CableFilters } from './useMapFeatures'
 
@@ -13,7 +13,7 @@ interface CableFilterBarProps {
   compact?: boolean
 }
 
-const SECONDARY = ['gas_pipeline_asset_id', 'usage_status', 'technical_condition', 'risk_level', 'laid_year_from', 'laid_year_to', 'length_min', 'length_max']
+const SECONDARY = ['cable_type_id', 'gas_pipeline_asset_id', 'usage_status', 'technical_condition', 'risk_level', 'laid_year_from', 'laid_year_to', 'length_min', 'length_max']
 
 const isSet = (v: unknown) => v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0)
 
@@ -21,6 +21,7 @@ const isSet = (v: unknown) => v !== undefined && v !== null && v !== '' && !(Arr
 export function CableFilterBar({ value, onChange, compact }: CableFilterBarProps) {
   const organizations = useOrganizationOptions()
   const { data: pipelines = [] } = usePipelines()
+  const { data: cableTypes = [] } = useCableTypes()
   const dismantling = useEnum('dismantling_status')
   const usage = useEnum('usage_status')
   const condition = useEnum('technical_condition')
@@ -82,6 +83,17 @@ export function CableFilterBar({ value, onChange, compact }: CableFilterBarProps
 
   const secondary = (
     <>
+      <Select
+        aria-label="Kabel turi"
+        placeholder="Kabel turi"
+        data={cableTypes.map((t) => ({ value: String(t.id), label: t.name }))}
+        value={value.cable_type_id ? String(value.cable_type_id) : null}
+        onChange={(v) => set('cable_type_id', v)}
+        clearable
+        searchable
+        w={w(200)}
+        size="sm"
+      />
       <Select
         aria-label="Gaz quvuri"
         placeholder="Gaz quvuri"

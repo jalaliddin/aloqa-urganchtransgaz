@@ -31,6 +31,7 @@ final class CableFilter
             'q' => ['nullable', 'string', 'max:100'],
             'organization_id' => ['nullable', 'integer'],
             'gas_pipeline_asset_id' => ['nullable', 'integer'],
+            'cable_type_id' => ['nullable', 'integer'],
             'dismantling_status' => ['nullable', 'array'],
             'dismantling_status.*' => [Rule::enum(DismantlingStatus::class)],
             'usage_status' => ['nullable', 'array'],
@@ -63,6 +64,7 @@ final class CableFilter
         $query
             ->when($filters['organization_id'] ?? null, fn ($q, $v) => $q->where($col('organization_id'), $v))
             ->when($filters['gas_pipeline_asset_id'] ?? null, fn ($q, $v) => $q->where($col('gas_pipeline_asset_id'), $v))
+            ->when($filters['cable_type_id'] ?? null, fn ($q, $v) => $q->where($col('cable_type_id'), $v))
             ->when($filters['dismantling_status'] ?? null, fn ($q, $v) => $q->whereIn($col('dismantling_status'), $v))
             ->when($filters['usage_status'] ?? null, fn ($q, $v) => $q->whereIn($col('usage_status'), $v))
             ->when($filters['technical_condition'] ?? null, fn ($q, $v) => $q->whereIn($col('technical_condition'), $v))
@@ -87,6 +89,7 @@ final class CableFilter
                     ->orWhere($col('end_point'), 'like', $term)
                     ->orWhere($col('inventory_number'), 'like', $term)
                     ->orWhereHas('gasPipelineAsset', fn ($g) => $g->where('name', 'like', $term)->orWhere('code', 'like', $term))
+                    ->orWhereHas('cableType', fn ($t) => $t->where('name', 'like', $term)->orWhere('code', 'like', $term)->orWhere('brand', 'like', $term))
                     ->orWhereHas('organization', fn ($o) => $o->where('name', 'like', $term)->orWhere('short_name', 'like', $term))
                     ->orWhereHas('segments', fn ($s) => $s->where('code', 'like', $term)->orWhere('location_description', 'like', $term)->orWhere('name', 'like', $term));
             });
