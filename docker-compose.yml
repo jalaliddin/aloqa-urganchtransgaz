@@ -1,0 +1,115 @@
+# Urganchtransgaz — aloqa kabel liniyalari reyestri
+# Base (production-like) stack. For development add: -f docker-compose.dev.yml
+#
+#   docker compose up -d --build
+#   docker compose exec backend php artisan migrate --force
+
+name: aloqa
+
+x-backend: &backend
+  build:
+    context: ./backend
+    target: prod
+  image: aloqa-backend:latest
+  env_file: .env
+  environment:
+    DB_HOST: mysql
+    DB_PORT: 3306
+  volumes:
+    - backend_storage:/var/www/html/storage
+  depends_on:
+    mysql:
+      condition: service_healthy
+  restart: unless-stopped
+  networks:
+    - internal
+
+services:
+  nginx:
+    build:
+      context: ./frontend
+      target: prod
+    image: aloqa-nginx:latest
+    ports:
+      - "${APP_BIND:-0.0.0.0}:${APP_PORT:-8090}:80"
+    volumes:
+      - ./docker/nginx/http.conf:/etc/nginx/conf.d/00-http.conf:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/nginx/common.conf:/etc/nginx/snippets/common.conf:ro
+      - ./docker/nginx/laravel-fastcgi.conf:/etc/nginx/snippets/laravel-fastcgi.conf:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - internal
+
+  backend:
+    <<: *backend
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      CONTAINER_ROLE: app
+
+  queue:
+    <<: *backend
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      CONTAINER_ROLE: queue
+    healthcheck:
+      disable: true
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  scheduler:
+    <<: *backend
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      CONTAINER_ROLE: scheduler
+    healthcheck:
+      disable: true
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  mysql:
+    image: mysql:8.4
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --log-bin-trust-function-creators=1
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD must be set in .env}
+      APP_ENV: ${APP_ENV:-production}
+      DB_DATABASE: ${DB_DATABASE:-aloqa}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      TZ: Asia/Tashkent
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - internal
+
+volumes:
+  mysql_data:
+  backend_storage:
+
+networks:
+  internal:
+    driver: bridge

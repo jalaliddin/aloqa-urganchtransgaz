@@ -1,0 +1,78 @@
+# Development overrides:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+# - Vite dev server with HMR behind nginx
+# - backend source bind-mounted (dev image incl. test tooling)
+# - MySQL reachable from the host on 127.0.0.1 only
+
+services:
+  nginx:
+    build:
+      context: ./frontend
+      target: nginx-base
+    image: aloqa-nginx-dev:latest
+    volumes:
+      - ./docker/nginx/dev.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+    image: aloqa-frontend-dev:latest
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      VITE_BEHIND_NGINX: "true"
+      VITE_HMR_CLIENT_PORT: ${APP_PORT:-8090}
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    restart: unless-stopped
+    networks:
+      - internal
+
+  backend:
+    build:
+      context: ./backend
+      target: dev
+    image: aloqa-backend-dev:latest
+    # Use the bind-mounted entrypoint so edits apply without rebuilding
+    entrypoint: ["sh", "/var/www/html/docker/entrypoint.sh"]
+    command: ["php-fpm"]
+    volumes:
+      - ./backend:/var/www/html
+      - backend_storage:/var/www/html/storage
+
+  queue:
+    build:
+      context: ./backend
+      target: dev
+    image: aloqa-backend-dev:latest
+    # Use the bind-mounted entrypoint so edits apply without rebuilding
+    entrypoint: ["sh", "/var/www/html/docker/entrypoint.sh"]
+    command: ["php-fpm"]
+    volumes:
+      - ./backend:/var/www/html
+      - backend_storage:/var/www/html/storage
+
+  scheduler:
+    build:
+      context: ./backend
+      target: dev
+    image: aloqa-backend-dev:latest
+    # Use the bind-mounted entrypoint so edits apply without rebuilding
+    entrypoint: ["sh", "/var/www/html/docker/entrypoint.sh"]
+    command: ["php-fpm"]
+    volumes:
+      - ./backend:/var/www/html
+      - backend_storage:/var/www/html/storage
+
+  mysql:
+    ports:
+      - "127.0.0.1:${DB_FORWARD_PORT:-33070}:3306"
+
+volumes:
+  frontend_node_modules:
